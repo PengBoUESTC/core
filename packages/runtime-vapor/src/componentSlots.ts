@@ -1,5 +1,11 @@
 import { EMPTY_OBJ, NO, hasOwn, isArray, isFunction } from '@vue/shared'
-import { type Block, type BlockFn, DynamicFragment, insert } from './block'
+import {
+  type Block,
+  type BlockFn,
+  DynamicFragment,
+  insert,
+  isValidBlock,
+} from './block'
 import { rawPropsProxyHandlers } from './componentProps'
 import { currentInstance, isRef } from '@vue/runtime-dom'
 import type { LooseRawProps, VaporComponentInstance } from './component'
@@ -126,6 +132,7 @@ export function createSlot(
     const renderSlot = () => {
       const slot = getSlot(rawSlots, isFunction(name) ? name() : name)
       if (slot) {
+        fragment.fallback = fallback
         // create and cache bound version of the slot to make it stable
         // so that we avoid unnecessary updates if it resolves to the same slot
         fragment.update(
@@ -133,7 +140,13 @@ export function createSlot(
             (slot._bound = () => {
               const slotContent = slot(slotProps)
               if (slotContent instanceof DynamicFragment) {
-                slotContent.fallback = fallback
+                // render fallback if slot content is not a valid block
+                if (
+                  (slotContent.fallback = fallback) &&
+                  !isValidBlock(slotContent.nodes)
+                ) {
+                  slotContent.update(fallback)
+                }
               }
               return slotContent
             }),
